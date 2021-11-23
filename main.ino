@@ -12,6 +12,7 @@
 #define AL_GROUP 8
 #define TEMP_MAX 40
 #define TEMP_MIN 20
+bool printMode = true;
 bool binaryMap[AMG88xx_PIXEL_ARRAY_SIZE];
 
 /*FALL SENSOR VARIABLES*/
