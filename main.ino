@@ -12,12 +12,15 @@
 #define AL_GROUP 8
 #define TEMP_MAX 40
 #define TEMP_MIN 20
+Adafruit_AMG88xx amg;
+float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
+bool printMode = false;
 bool binaryMap[AMG88xx_PIXEL_ARRAY_SIZE];
 
 /*FALL SENSOR VARIABLES*/
 int pinF = 1;       // connect FSR to A1
-int aRead, voltage; // analog read and voltage variables
-int thresh = 50;    // (mV) modify this threshhold according to fall test values
+int aReadF, voltageF; // analog read and voltage variables
+int threshF = 50;    // (mV) modify this threshhold according to fall test values
 
 /*MICROPONE SENSOR VARIABLES*/
 int micVal = 0;       //magnitude of the sound
@@ -26,10 +29,10 @@ int micTrigger = 600; //threshhold to surpass to trigger sound alert
 
 /*WATER SENSOR VARIABLES*/
 int pinW = 2;            // connect FSR to A2
-int aRead, voltage;      // analog read and voltage variables
+int aReadW, voltageW;      // analog read and voltage variables
 bool alert = false;      // if alert is true, send fall alert to UI
 int bottleWeight = 2800; // FSR voltage reading when empty bottle is resting on it.
-int thresh = 3200;       // set threshhold (the minimum weight of the bottle before sending alert
+int threshW = 3200;       // set threshhold (the minimum weight of the bottle before sending alert
 
 //////////////////* WIFI Variables *////////////////////////
 char ssid[] = "";            //  your network SSID (name) between the " "
@@ -82,7 +85,7 @@ void loop(void) // main loop
 
   // client = server.available();
 
-  if (fallfunction())
+  if (fallFunction())
   { //Fall Function
     Serial.println("FALL DETECTED");
   }
@@ -113,10 +116,10 @@ void loop(void) // main loop
 /*FALL FUNCTION*/
 bool fallFunction(void)
 {
-  aRead = analogRead(pinF);               // set analog int to read from pin A0
-  voltage = map(aRead, 0, 1023, 0, 5000); // voltage (mV) is mapped to analog values
+  aReadF = analogRead(pinF);               // set analog int to read from pin A0
+  voltageF = map(aReadF, 0, 1023, 0, 5000); // voltage (mV) is mapped to analog values
 
-  if (voltage > thresh) // depending on the threshhold, evaluate voltage and print appropriate mesage
+  if (voltageF > threshF) // depending on the threshhold, evaluate voltage and print appropriate mesage
   {
     // **use serial statements to test threshholds**
     //      Serial.println("WARNING: HIGH FORCE DETECTED (N): ");
@@ -148,15 +151,15 @@ bool microphoneFunction(void)
 /*WATER FUNCTION*/
 bool waterFunction(void) // function that returns true if the patient needs a refill
 {
-  aRead = analogRead(pinW);               // set analog int to read from pin A0
-  voltage = map(aRead, 0, 1023, 0, 5000); // voltage (mV) is mapped to analog values
+  aReadW = analogRead(pinW);               // set analog int to read from pin A0
+  voltageW = map(aReadW, 0, 1023, 0, 5000); // voltage (mV) is mapped to analog values
 
   // **Serial console statements for testing and gathering patient data: bottle weight / acceptable threshhold**
   //     Serial.println("FSR Voltage (mV): ");
   //     Serial.print(voltage);
   //     Serial.println();
 
-  if ((voltage > bottleWeight) && (voltage < thresh)) // if the bottle is on the sensor (patient is not actively using it) and it is almost empty, send warning
+  if ((voltageW > bottleWeight) && (voltageW < threshW)) // if the bottle is on the sensor (patient is not actively using it) and it is almost empty, send warning
   {
     //      Serial.println("WARNING! PATIENT NEEDS REFILL");
     return true;
