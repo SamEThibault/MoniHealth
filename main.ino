@@ -35,8 +35,8 @@ int bottleWeight = 2800; // FSR voltage reading when empty bottle is resting on 
 int threshW = 3200;       // set threshhold (the minimum weight of the bottle before sending alert
 
 //////////////////* WIFI Variables *////////////////////////
-char ssid[] = "";            //  your network SSID (name) between the " "
-char pass[] = "";            // your network password between the " "
+char ssid[] = "Linksys30504";            //  your network SSID (name) between the " "
+char pass[] = "fuds0yfpcd";            // your network password between the " "
 int keyIndex = 0;            // your network key Index number (needed only for WEP)
 int status = WL_IDLE_STATUS; //connection status
 WiFiServer server(80);       //server socket
@@ -51,14 +51,14 @@ void setup(void) // main setup loop
   pinMode(pinW, INPUT);
 
   //////////////* WIFI CODE *///////////////////
-  // while (!Serial)
-  //   ;
+  while (!Serial)
+     ;
 
-  // enable_WiFi();
-  // connect_WiFi();
+   enable_WiFi();
+   connect_WiFi();
 
-  // server.begin();
-  // printWifiStatus();
+   server.begin();
+   printWifiStatus();
   //////////////////////////////////////////
 
   //INITIIALIZE THERMAL SENSOR
@@ -87,19 +87,19 @@ void loop(void) // main loop
 
   if (fallFunction())
   { //Fall Function
-    Serial.println("FALL DETECTED");
+    printWEB("FALL DETECTED");
   }
 
   if (microphoneFunction())
   { // Microphone
-    Serial.println("SOUND DETECTED");
+    printWEB("SOUND DETECTED");
     Serial.print(F("Sound Magnitude: "));
     Serial.println(micVal);
   }
 
   if (waterFunction())
   { // Water
-    Serial.println("LOW WATER");
+    printWEB("LOW WATER");
   }
 
   //Thermal required commands
@@ -107,7 +107,7 @@ void loop(void) // main loop
   createBDM(pixels, binaryMap);
   if (thermalScan(binaryMap))
   { //Thermal
-    Serial.println("TEMPERATURE ALERT!");
+    printWEB("TEMPERATURE ALERT!");
   }
 
   delay(50); // we can change this to something that works for everyone
@@ -344,3 +344,45 @@ void connect_WiFi()
   }
 }
 ///////////////////////////////////////////////////////////////
+void printWEB(char *error) {
+ if (client) {                             // if you get a client, 
+    Serial.println("new client");           // print a message out the serial port 
+    String currentLine = "";                // make a String to hold incoming data from the client 
+    while (client.connected()) {            // loop while the client's connected 
+      if (client.available()) {             // if there's bytes to read from the client, 
+        char c = client.read();             // read a byte, then 
+        Serial.write(c);                    // print it out the serial monitor 
+        if (c == '\n') {                    // if the byte is a newline character 
+          // if the current line is blank, you got two newline characters in a row. 
+          // that's the end of the client HTTP request, so send a response: 
+          if (currentLine.length() == 0) { 
+ 
+            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK) 
+            // and a content-type so the client knows what's coming, then a blank line: 
+            client.println("HTTP/1.1 200 OK"); 
+            client.println("Content-type:text/html"); 
+            client.println(); 
+            
+            //create the buttons 
+            client.print(error); 
+
+            // The HTTP response ends with another blank line: 
+            client.println(); 
+            // break out of the while loop: 
+            break; 
+          } 
+          else {      // if you got a newline, then clear currentLine: 
+            currentLine = ""; 
+          } 
+        } 
+        else if (c != '\r') {    // if you got anything else but a carriage return character, 
+          currentLine += c;      // add it to the end of the currentLine 
+        } 
+ 
+      } 
+    } 
+    // close the connection: 
+    client.stop(); 
+    Serial.println("client disconnected"); 
+  } 
+}
