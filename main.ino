@@ -5,22 +5,11 @@
 //SCL (clock) is pin A5
 //SDA (data) is pin A4
 #include <Wire.h>
-#include <Adafruit_AMG88xx.h>
-//Thermal camera library provided by maufacturer
-
-/* THERMAL CAMERA VARIABLES*/
-#define AL_GROUP 8
-#define TEMP_MAX 40
-#define TEMP_MIN 20
-Adafruit_AMG88xx amg;
-float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
-bool printMode = false;
-bool binaryMap[AMG88xx_PIXEL_ARRAY_SIZE];
 
 /*FALL SENSOR VARIABLES*/
-int pinF = 1;       // connect FSR to A1
+int pinF = 1;         // connect FSR to A1
 int aReadF, voltageF; // analog read and voltage variables
-int threshF = 50;    // (mV) modify this threshhold according to fall test values
+int threshF = 50;     // (mV) modify this threshhold according to fall test values
 
 /*MICROPONE SENSOR VARIABLES*/
 int micVal = 0;       //magnitude of the sound
@@ -29,17 +18,17 @@ int micTrigger = 600; //threshhold to surpass to trigger sound alert
 
 /*WATER SENSOR VARIABLES*/
 int pinW = 2;            // connect FSR to A2
-int aReadW, voltageW;      // analog read and voltage variables
+int aReadW, voltageW;    // analog read and voltage variables
 bool alert = false;      // if alert is true, send fall alert to UI
 int bottleWeight = 2800; // FSR voltage reading when empty bottle is resting on it.
-int threshW = 3200;       // set threshhold (the minimum weight of the bottle before sending alert
+int threshW = 3200;      // set threshhold (the minimum weight of the bottle before sending alert
 
 //////////////////* WIFI Variables *////////////////////////
-char ssid[] = "Linksys30504";            //  your network SSID (name) between the " "
-char pass[] = "fuds0yfpcd";            // your network password between the " "
-int keyIndex = 0;            // your network key Index number (needed only for WEP)
-int status = WL_IDLE_STATUS; //connection status
-WiFiServer server(80);       //server socket
+char ssid[] = "Linksys30504"; //  your network SSID (name) between the " "
+char pass[] = "fuds0yfpcd";   // your network password between the " "
+int keyIndex = 0;             // your network key Index number (needed only for WEP)
+int status = WL_IDLE_STATUS;  //connection status
+WiFiServer server(80);        //server socket
 WiFiClient client = server.available();
 /////////////////////////////////////////////////////////////
 
@@ -49,31 +38,20 @@ void setup(void) // main setup loop
   pinMode(micPin, INPUT); //Init Microphone
   pinMode(pinF, INPUT);
   pinMode(pinW, INPUT);
+  pinMode(2, INPUT);
 
   //////////////* WIFI CODE *///////////////////
   while (!Serial)
-     ;
+    ;
 
-   enable_WiFi();
-   connect_WiFi();
+  enable_WiFi();
+  connect_WiFi();
 
-   server.begin();
-   printWifiStatus();
+  server.begin();
+  printWifiStatus();
   //////////////////////////////////////////
 
-  //INITIIALIZE THERMAL SENSOR
-
-  //Check for error
-  bool status;
-
-  // default settings
-  status = amg.begin();
-  if (!status)
-  {
-    Serial.println("Could not find a valid AMG88xx sensor, check wiring!");
-    while (1)
-      ;
-  }
+  delay(100);
 }
 
 void loop(void) // main loop
@@ -83,40 +61,44 @@ void loop(void) // main loop
   //waterFunction();
   //thermalScan();
 
-  // client = server.available();
+  client = server.available();
+  if (client)
+  {
 
-  if (fallFunction())
-  { //Fall Function
-    printWEB("FALL DETECTED");
+    if (fallFunction() && microphoneFunction()) // if loud noise and pressure on FSR at the same time
+    {                                           //Fall Function
+      Serial.println("FALL DETECTED");
+      printWEB("FALL DETECTED");
+    }
+
+    // if (microphoneFunction())
+    // { // Microphone
+    //   Serial.println("DECTED sound");
+    //   printWEB("SOUND DETECTED");
+    //   Serial.print(F("Sound Magnitude: "));
+    //   Serial.println(micVal);
+    // }
+
+    if (waterFunction())
+    { // Water
+      Serial.println("DETECTED WATER");
+      printWEB("LOW WATER");
+    }
+
+    if (digitalRead(2) == HIGH)
+    {                                         //Thermal
+      Serial.println("DETECTED temperature"); // - Matthew
+      printWEB("TEMPERATURE ALERT!");
+    }
+    printWEB("No incidents");
   }
-
-  if (microphoneFunction())
-  { // Microphone
-    printWEB("SOUND DETECTED");
-    Serial.print(F("Sound Magnitude: "));
-    Serial.println(micVal);
-  }
-
-  if (waterFunction())
-  { // Water
-    printWEB("LOW WATER");
-  }
-
-  //Thermal required commands
-  amg.readPixels(pixels);
-  createBDM(pixels, binaryMap);
-  if (thermalScan(binaryMap))
-  { //Thermal
-    printWEB("TEMPERATURE ALERT!");
-  }
-
-  delay(50); // we can change this to something that works for everyone
+  delay(300); // we can change this to something that works for everyone
 }
 
 /*FALL FUNCTION*/
 bool fallFunction(void)
 {
-  aReadF = analogRead(pinF);               // set analog int to read from pin A0
+  aReadF = analogRead(pinF);                // set analog int to read from pin A0
   voltageF = map(aReadF, 0, 1023, 0, 5000); // voltage (mV) is mapped to analog values
 
   if (voltageF > threshF) // depending on the threshhold, evaluate voltage and print appropriate mesage
@@ -151,7 +133,7 @@ bool microphoneFunction(void)
 /*WATER FUNCTION*/
 bool waterFunction(void) // function that returns true if the patient needs a refill
 {
-  aReadW = analogRead(pinW);               // set analog int to read from pin A0
+  aReadW = analogRead(pinW);                // set analog int to read from pin A0
   voltageW = map(aReadW, 0, 1023, 0, 5000); // voltage (mV) is mapped to analog values
 
   // **Serial console statements for testing and gathering patient data: bottle weight / acceptable threshhold**
@@ -168,126 +150,6 @@ bool waterFunction(void) // function that returns true if the patient needs a re
   return false;
 }
 /*END OF WATER SECTION*/
-
-//THERMAL SENSOR FUNCTIONS------------------
-
-void createBDM(float data[], bool output[])
-{
-
-  for (int i = 0; i < AMG88xx_PIXEL_ARRAY_SIZE; i++)
-  {
-
-    if ((data[i] > TEMP_MAX) || (data[i] < TEMP_MIN))
-      output[i] = 1;
-    else
-      output[i] = 0;
-  }
-}
-
-/* Array layout
- * 0 - 7        (0)
- * 8 - 15       (1)
- * 16 - 23      (2)
- * 24 - 31      (3)
- * 32 - 39      (4)
- * 40 - 47      (5)
- * 48 - 55      (6)
- * 56 - 63      (7)
- */
-
-int scanCardinals(bool binmap[], int i)
-{
-
-  int gCount;
-
-  //Function called on binmap points with TRUE (1) values
-  //These are identified as unsafe values
-  //When called: set this value to 0 (to prevent double counting) and incriment counter
-
-  if (binmap[i] != 1)
-    return -999; //error
-
-  gCount = 1;
-  binmap[i] = 0;
-  //Scan all cardinal directions
-
-  //Scan left
-  //Check left is valid - decrementing should not cause wrap around
-  if (((i - 1) % 8) < (i % 8))
-  {
-    if (binmap[i - 1] == 1)
-    {
-      gCount += scanCardinals(binmap, i - 1);
-    }
-  }
-
-  //Scan right
-  //Check right is valid - Incrimenting i should not wrap around
-  if (((i + 1) % 8) > (i % 8))
-  {
-    if (binmap[i + 1] == 1)
-    {
-      gCount += scanCardinals(binmap, i + 1);
-    }
-  }
-
-  //Scan up
-  //Check UP is valid - going up 1 row should be possible
-  //If not - on upper array row and cannot check upwards
-  if ((i - 8) >= 0)
-  {
-    if (binmap[i - 8] == 1)
-    {
-      gCount += scanCardinals(binmap, i - 8);
-    }
-  }
-
-  //Scan down
-  //Check DOWN is valid - going down 1 row should not be outside of the array
-  //Skip check if it is, since down is invalid for that case
-  if ((i + 8) < AMG88xx_PIXEL_ARRAY_SIZE)
-  {
-    if (binmap[i + 8] == 1)
-    {
-      gCount += scanCardinals(binmap, i + 8);
-    }
-  }
-
-  return gCount;
-}
-
-bool thermalScan(bool binmap[])
-{
-
-  int groupSize;
-
-  for (int i = 0; i < AMG88xx_PIXEL_ARRAY_SIZE; i++)
-  {
-    //Search array for alerts (1) and scan those for groups of 1
-    //The scanCardinals will remove the entire group of 1's (set to 0)
-    //and count the group size
-
-    if (binmap[i] == 1)
-    {
-      groupSize = scanCardinals(binmap, i);
-
-      if (printMode)
-      {
-        Serial.print("Group found: ");
-        Serial.print(groupSize);
-        Serial.println();
-      }
-
-      if (groupSize >= AL_GROUP)
-        return true;
-    }
-  }
-  //If this code is reached, the whole array has been scanned and no
-  //groups were found of large enough size, so no problems found
-  return false;
-}
-
-//END OF THERMAL SENSOR FUNCTIONS-----------
 
 ////////////////////////* WIFI FUNTION *//////////////////////////
 void printWifiStatus()
@@ -344,45 +206,52 @@ void connect_WiFi()
   }
 }
 ///////////////////////////////////////////////////////////////
-void printWEB(char *error) {
- if (client) {                             // if you get a client, 
-    Serial.println("new client");           // print a message out the serial port 
-    String currentLine = "";                // make a String to hold incoming data from the client 
-    while (client.connected()) {            // loop while the client's connected 
-      if (client.available()) {             // if there's bytes to read from the client, 
-        char c = client.read();             // read a byte, then 
-        Serial.write(c);                    // print it out the serial monitor 
-        if (c == '\n') {                    // if the byte is a newline character 
-          // if the current line is blank, you got two newline characters in a row. 
-          // that's the end of the client HTTP request, so send a response: 
-          if (currentLine.length() == 0) { 
- 
-            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK) 
-            // and a content-type so the client knows what's coming, then a blank line: 
-            client.println("HTTP/1.1 200 OK"); 
-            client.println("Content-type:text/html"); 
-            client.println(); 
-            
-            //create the buttons 
-            client.print(error); 
+void printWEB(char *error)
+{
+  if (client)
+  {                               // if you get a client,
+    Serial.println("new client"); // print a message out the serial port
+    String currentLine = "";      // make a String to hold incoming data from the client
+    while (client.connected())
+    { // loop while the client's connected
+      if (client.available())
+      {                         // if there's bytes to read from the client,
+        char c = client.read(); // read a byte, then
+        Serial.write(c);        // print it out the serial monitor
+        if (c == '\n')
+        { // if the byte is a newline character
+          // if the current line is blank, you got two newline characters in a row.
+          // that's the end of the client HTTP request, so send a response:
+          if (currentLine.length() == 0)
+          {
 
-            // The HTTP response ends with another blank line: 
-            client.println(); 
-            // break out of the while loop: 
-            break; 
-          } 
-          else {      // if you got a newline, then clear currentLine: 
-            currentLine = ""; 
-          } 
-        } 
-        else if (c != '\r') {    // if you got anything else but a carriage return character, 
-          currentLine += c;      // add it to the end of the currentLine 
-        } 
- 
-      } 
-    } 
-    // close the connection: 
-    client.stop(); 
-    Serial.println("client disconnected"); 
-  } 
+            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+            // and a content-type so the client knows what's coming, then a blank line:
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/html");
+            client.println();
+
+            //create the buttons
+            client.print(error);
+
+            // The HTTP response ends with another blank line:
+            client.println();
+            // break out of the while loop:
+            break;
+          }
+          else
+          { // if you got a newline, then clear currentLine:
+            currentLine = "";
+          }
+        }
+        else if (c != '\r')
+        {                   // if you got anything else but a carriage return character,
+          currentLine += c; // add it to the end of the currentLine
+        }
+      }
+    }
+    // close the connection:
+    client.stop();
+    Serial.println("client disconnected");
+  }
 }
