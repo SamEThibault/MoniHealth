@@ -68,14 +68,6 @@ void loop(void) // main loop
       message += "Fall Dectected";
     }
 
-     if (microphoneFunction())
-     { // Microphone
-//        Serial.println("DETECTED sound", message);
-//       Serial.print(F("Sound Magnitude: "));
-//       Serial.println(micVal);
-        message += ", Sound Detected";
-     }
-
     if (waterFunction())
     { // Water
       Serial.println("DETECTED WATER");
