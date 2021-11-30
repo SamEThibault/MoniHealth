@@ -1,5 +1,4 @@
 #include <WiFiNINA.h>
-// #include "EMailSender.h"
 
 //Wire Library for I2C communication used by the thermal camera
 //SCL (clock) is pin A5
@@ -23,9 +22,12 @@ bool alert = false;      // if alert is true, send fall alert to UI
 int bottleWeight = 2800; // FSR voltage reading when empty bottle is resting on it.
 int threshW = 3200;      // set threshhold (the minimum weight of the bottle before sending alert
 
+/*THERMAL SENSOR VARIABLES*/
+int thermalPin = 2;
+
 //////////////////* WIFI Variables *////////////////////////
-char ssid[] = "Linksys30504"; //  your network SSID (name) between the " "
-char pass[] = "fuds0yfpcd";   // your network password between the " "
+char ssid[] = ""; //  your network SSID (name) between the " "
+char pass[] = "";   // your network password between the " "
 int keyIndex = 0;             // your network key Index number (needed only for WEP)
 int status = WL_IDLE_STATUS;  //connection status
 WiFiServer server(80);        //server socket
@@ -38,7 +40,7 @@ void setup(void) // main setup loop
   pinMode(micPin, INPUT); //Init Microphone
   pinMode(pinF, INPUT);
   pinMode(pinW, INPUT);
-  pinMode(2, INPUT);
+  pinMode(thermalPin, INPUT);
 
   //////////////* WIFI CODE *///////////////////
   while (!Serial)
@@ -56,41 +58,41 @@ void setup(void) // main setup loop
 
 void loop(void) // main loop
 {
-  //fallFunction();
-  //microphoneFunction();
-  //waterFunction();
-  //thermalScan();
-
   client = server.available();
   if (client)
   {
-
+    String message = "";
     if (fallFunction() && microphoneFunction()) // if loud noise and pressure on FSR at the same time
     {                                           //Fall Function
       Serial.println("FALL DETECTED");
-      printWEB("FALL DETECTED");
+      message += "Fall Dectected";
     }
 
-    // if (microphoneFunction())
-    // { // Microphone
-    //   Serial.println("DECTED sound");
-    //   printWEB("SOUND DETECTED");
-    //   Serial.print(F("Sound Magnitude: "));
-    //   Serial.println(micVal);
-    // }
+     if (microphoneFunction())
+     { // Microphone
+//        Serial.println("DETECTED sound", message);
+//       Serial.print(F("Sound Magnitude: "));
+//       Serial.println(micVal);
+        message += ", Sound Detected";
+     }
 
     if (waterFunction())
     { // Water
       Serial.println("DETECTED WATER");
-      printWEB("LOW WATER");
+      message += ", Low Water Detected";
     }
 
-    if (digitalRead(2) == HIGH)
+    if (digitalRead(thermalPin) == HIGH)
     {                                         //Thermal
       Serial.println("DETECTED temperature"); // - Matthew
-      printWEB("TEMPERATURE ALERT!");
+      message += ", Temperature Alert Detected";
     }
-    printWEB("No incidents");
+    
+    if(message == ""){
+      message += "No incidents";
+    }
+    
+    printWEB(message);
   }
   delay(300); // we can change this to something that works for everyone
 }
@@ -206,7 +208,7 @@ void connect_WiFi()
   }
 }
 ///////////////////////////////////////////////////////////////
-void printWEB(char *error)
+void printWEB(String error)
 {
   if (client)
   {                               // if you get a client,
